@@ -12,3 +12,6 @@ const nextConfig = {
 }
 
 export default nextConfig
+
+npm install next-auth @next-auth/prisma-adapter @prisma/client
+npm install prisma --save-dev
