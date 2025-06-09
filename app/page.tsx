@@ -4,7 +4,6 @@ import type React from "react"
 
 import { useState } from "react"
 import { AuthProvider } from "@/contexts/auth-context"
-import { AuthModal } from "@/components/auth-modal"
 import { UserMenu } from "@/components/user-menu"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
@@ -17,8 +16,6 @@ import Link from "next/link"
 
 function RateMyRentalContent() {
   const { user } = useAuth()
-  const [authModalOpen, setAuthModalOpen] = useState(false)
-  const [authModalTab, setAuthModalTab] = useState<"login" | "signup">("login")
   const [searchQuery, setSearchQuery] = useState("")
 
   const handleSearch = (e: React.FormEvent) => {
@@ -43,24 +40,11 @@ function RateMyRentalContent() {
                 <UserMenu />
               ) : (
                 <>
-                  <Button
-                    variant="ghost"
-                    className="text-gray-600 hover:text-gray-900"
-                    onClick={() => {
-                      setAuthModalTab("login")
-                      setAuthModalOpen(true)
-                    }}
-                  >
-                    Login
+                  <Button variant="ghost" className="text-gray-600 hover:text-gray-900" asChild>
+                    <Link href="/auth">Login</Link>
                   </Button>
-                  <Button
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                    onClick={() => {
-                      setAuthModalTab("signup")
-                      setAuthModalOpen(true)
-                    }}
-                  >
-                    Sign Up
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white" asChild>
+                    <Link href="/auth?tab=signup">Sign Up</Link>
                   </Button>
                 </>
               )}
@@ -300,8 +284,7 @@ function RateMyRentalContent() {
               if (user) {
                 window.location.href = "/dashboard"
               } else {
-                setAuthModalTab("signup")
-                setAuthModalOpen(true)
+                window.location.href = "/auth?tab=signup"
               }
             }}
           >
@@ -396,7 +379,6 @@ function RateMyRentalContent() {
           </div>
         </div>
       </footer>
-      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} defaultTab={authModalTab} />
     </div>
   )
 }

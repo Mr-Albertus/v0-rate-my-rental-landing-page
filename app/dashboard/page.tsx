@@ -1,26 +1,31 @@
 "use client"
 
-import { useAuth } from "@/contexts/auth-context"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { AuthProvider, useAuth } from "@/contexts/auth-context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Star, MessageSquare, TrendingUp, Users, Calendar, Edit } from "lucide-react"
+import { Star, MessageSquare, TrendingUp, Users, Calendar, Edit, Home } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
 
-export default function Dashboard() {
+function DashboardContent() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    if (!isLoading && !user) {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (mounted && !isLoading && !user) {
       router.push("/")
     }
-  }, [user, isLoading, router])
+  }, [user, isLoading, router, mounted])
 
-  if (isLoading) {
+  if (!mounted || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
@@ -76,6 +81,18 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Navigation */}
+      <nav className="border-b border-gray-200 bg-white/95 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <Link href="/" className="flex items-center">
+              <Home className="h-8 w-8 text-blue-600" />
+              <span className="ml-2 text-xl font-bold text-gray-900">RateMyRental</span>
+            </Link>
+          </div>
+        </div>
+      </nav>
+
       {/* Header */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -254,5 +271,13 @@ export default function Dashboard() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function Dashboard() {
+  return (
+    <AuthProvider>
+      <DashboardContent />
+    </AuthProvider>
   )
 }

@@ -5,8 +5,9 @@ import type React from "react"
 import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { SearchIcon } from "lucide-react"
+import { SearchIcon, Home } from "lucide-react"
 import { SearchResults } from "@/components/search-results"
+import Link from "next/link"
 
 export default function SearchPage() {
   const [query, setQuery] = useState("")
@@ -19,6 +20,18 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Navigation */}
+      <nav className="border-b border-gray-200 bg-white/95 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <Link href="/" className="flex items-center">
+              <Home className="h-8 w-8 text-blue-600" />
+              <span className="ml-2 text-xl font-bold text-gray-900">RateMyRental</span>
+            </Link>
+          </div>
+        </div>
+      </nav>
+
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">Search People & Properties</h1>

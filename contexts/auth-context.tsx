@@ -27,15 +27,26 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+
     // Check for stored user session
-    const storedUser = localStorage.getItem("ratemyrental_user")
-    if (storedUser) {
-      setUser(JSON.parse(storedUser))
+    try {
+      const storedUser = localStorage.getItem("ratemyrental_user")
+      if (storedUser) {
+        setUser(JSON.parse(storedUser))
+      }
+    } catch (error) {
+      console.error("Error loading user from localStorage:", error)
     }
     setIsLoading(false)
-  }, [])
+  }, [mounted])
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true)
@@ -56,7 +67,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     setUser(mockUser)
-    localStorage.setItem("ratemyrental_user", JSON.stringify(mockUser))
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ratemyrental_user", JSON.stringify(mockUser))
+    }
     setIsLoading(false)
     return true
   }
@@ -79,14 +92,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     setUser(mockUser)
-    localStorage.setItem("ratemyrental_user", JSON.stringify(mockUser))
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ratemyrental_user", JSON.stringify(mockUser))
+    }
     setIsLoading(false)
     return true
   }
 
   const logout = () => {
     setUser(null)
-    localStorage.removeItem("ratemyrental_user")
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("ratemyrental_user")
+    }
   }
 
   return <AuthContext.Provider value={{ user, login, signup, logout, isLoading }}>{children}</AuthContext.Provider>
