@@ -1,3 +1,12 @@
+"use client"
+
+import type React from "react"
+
+import { useState } from "react"
+import { AuthProvider } from "@/contexts/auth-context"
+import { AuthModal } from "@/components/auth-modal"
+import { UserMenu } from "@/components/user-menu"
+import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -6,7 +15,19 @@ import { Badge } from "@/components/ui/badge"
 import { Search, Star, CheckCircle, Facebook, Twitter, Instagram, Linkedin, Home, MessageSquare } from "lucide-react"
 import Link from "next/link"
 
-export default function RateMyRentalLanding() {
+function RateMyRentalContent() {
+  const { user } = useAuth()
+  const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [authModalTab, setAuthModalTab] = useState<"login" | "signup">("login")
+  const [searchQuery, setSearchQuery] = useState("")
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      window.location.href = `/search?q=${encodeURIComponent(searchQuery)}`
+    }
+  }
+
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation */}
@@ -18,10 +39,31 @@ export default function RateMyRentalLanding() {
               <span className="ml-2 text-xl font-bold text-gray-900">RateMyRental</span>
             </div>
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" className="text-gray-600 hover:text-gray-900">
-                Login
-              </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">Sign Up</Button>
+              {user ? (
+                <UserMenu />
+              ) : (
+                <>
+                  <Button
+                    variant="ghost"
+                    className="text-gray-600 hover:text-gray-900"
+                    onClick={() => {
+                      setAuthModalTab("login")
+                      setAuthModalOpen(true)
+                    }}
+                  >
+                    Login
+                  </Button>
+                  <Button
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={() => {
+                      setAuthModalTab("signup")
+                      setAuthModalOpen(true)
+                    }}
+                  >
+                    Sign Up
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -38,16 +80,20 @@ export default function RateMyRentalLanding() {
 
             {/* Search Bar */}
             <div className="max-w-2xl mx-auto">
-              <div className="flex flex-col sm:flex-row gap-4">
+              <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                   <Input
                     placeholder="Search for people or properties..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10 h-14 text-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
-                <Button className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white text-lg">Search</Button>
-              </div>
+                <Button type="submit" className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white text-lg">
+                  Search
+                </Button>
+              </form>
             </div>
           </div>
         </div>
@@ -247,8 +293,19 @@ export default function RateMyRentalLanding() {
           <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
             Start rating and reviewing today to help build a more transparent rental market for everyone.
           </p>
-          <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100 text-lg px-8 py-4">
-            Get Started
+          <Button
+            size="lg"
+            className="bg-white text-blue-600 hover:bg-gray-100 text-lg px-8 py-4"
+            onClick={() => {
+              if (user) {
+                window.location.href = "/dashboard"
+              } else {
+                setAuthModalTab("signup")
+                setAuthModalOpen(true)
+              }
+            }}
+          >
+            {user ? "Go to Dashboard" : "Get Started"}
           </Button>
         </div>
       </section>
@@ -339,6 +396,15 @@ export default function RateMyRentalLanding() {
           </div>
         </div>
       </footer>
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} defaultTab={authModalTab} />
     </div>
+  )
+}
+
+export default function RateMyRentalLanding() {
+  return (
+    <AuthProvider>
+      <RateMyRentalContent />
+    </AuthProvider>
   )
 }
