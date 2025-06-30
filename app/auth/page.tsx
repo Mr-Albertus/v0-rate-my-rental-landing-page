@@ -12,8 +12,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Home, Loader2, Eye, EyeOff, Mail, Lock, User, ArrowLeft, Star, Shield, Users } from "lucide-react"
+import {
+  Home,
+  Loader2,
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  User,
+  ArrowLeft,
+  Star,
+  Shield,
+  Users,
+  CheckCircle,
+  AlertCircle,
+} from "lucide-react"
 import Link from "next/link"
+import { EmailSuggestion } from "@/components/email-suggestion"
 
 function AuthContent() {
   const { login, signup, isLoading, user } = useAuth()
@@ -26,6 +41,8 @@ function AuthContent() {
 
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false)
+  const [successMessage, setSuccessMessage] = useState("")
 
   const [loginForm, setLoginForm] = useState({
     email: "",
@@ -50,13 +67,13 @@ function AuthContent() {
   }, [])
 
   useEffect(() => {
-    if (mounted && user) {
+    if (mounted && user && !showSuccessMessage) {
       router.push("/dashboard")
     }
-  }, [user, mounted, router])
+  }, [user, mounted, router, showSuccessMessage])
 
   const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
     return emailRegex.test(email)
   }
 
@@ -79,13 +96,14 @@ function AuthContent() {
     }
 
     try {
-      const success = await login(loginForm.email, loginForm.password)
-      if (success) {
-        router.push("/dashboard")
+      const result = await login(loginForm.email, loginForm.password)
+      if (result.success) {
+        // Success will be handled by the useEffect when user state updates
       } else {
-        setErrors({ general: "Invalid email or password" })
+        setErrors({ general: result.error || "Login failed" })
       }
     } catch (error) {
+      console.error("Login error:", error)
       setErrors({ general: "An error occurred. Please try again." })
     }
 
@@ -104,8 +122,43 @@ function AuthContent() {
       return
     }
 
-    if (!validateEmail(signupForm.email)) {
-      setErrors({ email: "Please enter a valid email address" })
+    // Enhanced email validation
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+    if (!validateEmail(signupForm.email) || !emailRegex.test(signupForm.email)) {
+      setErrors({
+        email: "Please enter a valid email address (e.g., yourname@gmail.com)",
+      })
+      setIsSubmitting(false)
+      return
+    }
+
+    // Check for invalid test domains that Supabase rejects
+    const invalidDomains = [
+      "test.com",
+      "example.com",
+      "temp.com",
+      "fake.com",
+      "invalid.com",
+      "dummy.com",
+      "sample.com",
+      "demo.com",
+      "localhost",
+    ]
+    const emailDomain = signupForm.email.split("@")[1]?.toLowerCase()
+    if (invalidDomains.includes(emailDomain)) {
+      setErrors({
+        email:
+          "Please use a real email address from Gmail, Yahoo, Outlook, or another valid email provider. Test domains are not allowed.",
+      })
+      setIsSubmitting(false)
+      return
+    }
+
+    // Check for test patterns in email
+    if (signupForm.email.toLowerCase().includes("test@test")) {
+      setErrors({
+        email: "Please use your real email address. Test emails like 'test@test.com' are not allowed.",
+      })
       setIsSubmitting(false)
       return
     }
@@ -122,6 +175,15 @@ function AuthContent() {
       return
     }
 
+    // Enhanced password validation
+    const hasLetter = /[a-zA-Z]/.test(signupForm.password)
+    const hasNumber = /\d/.test(signupForm.password)
+    if (!hasLetter || !hasNumber) {
+      setErrors({ password: "Password must contain at least one letter and one number" })
+      setIsSubmitting(false)
+      return
+    }
+
     if (!signupForm.agreeToTerms) {
       setErrors({ terms: "Please agree to the Terms of Service and Privacy Policy" })
       setIsSubmitting(false)
@@ -129,13 +191,52 @@ function AuthContent() {
     }
 
     try {
-      const success = await signup(signupForm.name, signupForm.email, signupForm.password, signupForm.type)
-      if (success) {
-        router.push("/dashboard")
+      console.log("Attempting signup...")
+      const result = await signup(signupForm.name, signupForm.email, signupForm.password, signupForm.type)
+
+      if (result.success) {
+        console.log("Signup successful")
+
+        // Check if it's an email confirmation message
+        if (result.error && result.error.includes("email")) {
+          setSuccessMessage(result.error)
+          setShowSuccessMessage(true)
+
+          // Clear form
+          setSignupForm({
+            name: "",
+            email: "",
+            password: "",
+            confirmPassword: "",
+            type: "tenant",
+            agreeToTerms: false,
+          })
+        } else {
+          setSuccessMessage("Account created successfully! Redirecting to dashboard...")
+          setShowSuccessMessage(true)
+
+          // Clear form
+          setSignupForm({
+            name: "",
+            email: "",
+            password: "",
+            confirmPassword: "",
+            type: "tenant",
+            agreeToTerms: false,
+          })
+
+          // Redirect after a short delay to show success message
+          setTimeout(() => {
+            setShowSuccessMessage(false)
+            router.push("/dashboard")
+          }, 2000)
+        }
       } else {
-        setErrors({ general: "Failed to create account. Please try again." })
+        console.error("Signup failed:", result.error)
+        setErrors({ general: result.error || "Failed to create account" })
       }
     } catch (error) {
+      console.error("Signup error:", error)
       setErrors({ general: "An error occurred. Please try again." })
     }
 
@@ -151,6 +252,43 @@ function AuthContent() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  if (showSuccessMessage) {
+    const isEmailConfirmation = successMessage.includes("email")
+
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-gray-50">
+        <Card className="w-full max-w-md shadow-2xl border-0">
+          <CardContent className="p-8 text-center">
+            <div
+              className={`w-16 h-16 ${isEmailConfirmation ? "bg-blue-100" : "bg-green-100"} rounded-full flex items-center justify-center mx-auto mb-4`}
+            >
+              {isEmailConfirmation ? (
+                <Mail className="w-8 h-8 text-blue-600" />
+              ) : (
+                <CheckCircle className="w-8 h-8 text-green-600" />
+              )}
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {isEmailConfirmation ? "Check Your Email" : "Welcome to RateMyRental!"}
+            </h2>
+            <p className="text-gray-600 mb-4">{successMessage}</p>
+            {!isEmailConfirmation && (
+              <>
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="text-sm text-gray-500 mt-2">Redirecting to your dashboard...</p>
+              </>
+            )}
+            {isEmailConfirmation && (
+              <Button onClick={() => setShowSuccessMessage(false)} className="mt-4">
+                Back to Login
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -254,7 +392,7 @@ function AuthContent() {
                     <div className="space-y-3">
                       <Button
                         variant="outline"
-                        className="w-full h-11"
+                        className="w-full h-11 bg-transparent"
                         onClick={() => handleSocialLogin("Google")}
                         disabled={isSubmitting}
                       >
@@ -281,7 +419,7 @@ function AuthContent() {
 
                       <Button
                         variant="outline"
-                        className="w-full h-11"
+                        className="w-full h-11 bg-transparent"
                         onClick={() => handleSocialLogin("Facebook")}
                         disabled={isSubmitting}
                       >
@@ -363,6 +501,7 @@ function AuthContent() {
 
                       {errors.general && (
                         <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
                           <AlertDescription>{errors.general}</AlertDescription>
                         </Alert>
                       )}
@@ -417,6 +556,9 @@ function AuthContent() {
                           />
                         </div>
                         {errors.email && <p className="text-sm text-red-600">{errors.email}</p>}
+                        {!signupForm.email && (
+                          <EmailSuggestion onEmailSelect={(email) => setSignupForm({ ...signupForm, email })} />
+                        )}
                       </div>
 
                       <div className="space-y-2">
@@ -510,6 +652,7 @@ function AuthContent() {
 
                       {errors.general && (
                         <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
                           <AlertDescription>{errors.general}</AlertDescription>
                         </Alert>
                       )}

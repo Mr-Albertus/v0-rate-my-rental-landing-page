@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuth } from "@/contexts/auth-context"
-import { Loader2 } from "lucide-react"
+import { Loader2, Eye, EyeOff } from "lucide-react"
 
 interface AuthModalProps {
   isOpen: boolean
@@ -21,6 +22,9 @@ interface AuthModalProps {
 export function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalProps) {
   const { login, signup, isLoading } = useAuth()
   const [activeTab, setActiveTab] = useState(defaultTab)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
   const [loginForm, setLoginForm] = useState({ email: "", password: "" })
   const [signupForm, setSignupForm] = useState({
     name: "",
@@ -31,6 +35,11 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalPr
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
 
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email)
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrors({})
@@ -40,12 +49,17 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalPr
       return
     }
 
-    const success = await login(loginForm.email, loginForm.password)
-    if (success) {
+    if (!validateEmail(loginForm.email)) {
+      setErrors({ email: "Please enter a valid email address" })
+      return
+    }
+
+    const result = await login(loginForm.email, loginForm.password)
+    if (result.success) {
       onClose()
       setLoginForm({ email: "", password: "" })
     } else {
-      setErrors({ general: "Invalid email or password" })
+      setErrors({ general: result.error || "Login failed" })
     }
   }
 
@@ -55,6 +69,11 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalPr
 
     if (!signupForm.name || !signupForm.email || !signupForm.password || !signupForm.confirmPassword) {
       setErrors({ general: "Please fill in all fields" })
+      return
+    }
+
+    if (!validateEmail(signupForm.email)) {
+      setErrors({ email: "Please enter a valid email address" })
       return
     }
 
@@ -68,12 +87,12 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalPr
       return
     }
 
-    const success = await signup(signupForm.name, signupForm.email, signupForm.password, signupForm.type)
-    if (success) {
+    const result = await signup(signupForm.name, signupForm.email, signupForm.password, signupForm.type)
+    if (result.success) {
       onClose()
       setSignupForm({ name: "", email: "", password: "", confirmPassword: "", type: "tenant" })
     } else {
-      setErrors({ general: "Failed to create account" })
+      setErrors({ general: result.error || "Signup failed" })
     }
   }
 
@@ -101,20 +120,37 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalPr
                   value={loginForm.email}
                   onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
                   disabled={isLoading}
+                  className={errors.email ? "border-red-500" : ""}
                 />
+                {errors.email && <p className="text-sm text-red-600">{errors.email}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="login-password">Password</Label>
-                <Input
-                  id="login-password"
-                  type="password"
-                  placeholder="Enter your password"
-                  value={loginForm.password}
-                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                  disabled={isLoading}
-                />
+                <div className="relative">
+                  <Input
+                    id="login-password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    value={loginForm.password}
+                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                    disabled={isLoading}
+                    className={`pr-10 ${errors.password ? "border-red-500" : ""}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {errors.password && <p className="text-sm text-red-600">{errors.password}</p>}
               </div>
-              {errors.general && <p className="text-sm text-red-600">{errors.general}</p>}
+              {errors.general && (
+                <Alert variant="destructive">
+                  <AlertDescription>{errors.general}</AlertDescription>
+                </Alert>
+              )}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <>
@@ -149,7 +185,9 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalPr
                   value={signupForm.email}
                   onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
                   disabled={isLoading}
+                  className={errors.email ? "border-red-500" : ""}
                 />
+                {errors.email && <p className="text-sm text-red-600">{errors.email}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="user-type">I am a</Label>
@@ -171,29 +209,53 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalPr
               </div>
               <div className="space-y-2">
                 <Label htmlFor="signup-password">Password</Label>
-                <Input
-                  id="signup-password"
-                  type="password"
-                  placeholder="Create a password"
-                  value={signupForm.password}
-                  onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
-                  disabled={isLoading}
-                />
+                <div className="relative">
+                  <Input
+                    id="signup-password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Create a password"
+                    value={signupForm.password}
+                    onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
+                    disabled={isLoading}
+                    className={`pr-10 ${errors.password ? "border-red-500" : ""}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
                 {errors.password && <p className="text-sm text-red-600">{errors.password}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="signup-confirm-password">Confirm Password</Label>
-                <Input
-                  id="signup-confirm-password"
-                  type="password"
-                  placeholder="Confirm your password"
-                  value={signupForm.confirmPassword}
-                  onChange={(e) => setSignupForm({ ...signupForm, confirmPassword: e.target.value })}
-                  disabled={isLoading}
-                />
+                <div className="relative">
+                  <Input
+                    id="signup-confirm-password"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Confirm your password"
+                    value={signupForm.confirmPassword}
+                    onChange={(e) => setSignupForm({ ...signupForm, confirmPassword: e.target.value })}
+                    disabled={isLoading}
+                    className={`pr-10 ${errors.confirmPassword ? "border-red-500" : ""}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
                 {errors.confirmPassword && <p className="text-sm text-red-600">{errors.confirmPassword}</p>}
               </div>
-              {errors.general && <p className="text-sm text-red-600">{errors.general}</p>}
+              {errors.general && (
+                <Alert variant="destructive">
+                  <AlertDescription>{errors.general}</AlertDescription>
+                </Alert>
+              )}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <>

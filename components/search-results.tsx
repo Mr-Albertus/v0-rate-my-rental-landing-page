@@ -6,19 +6,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Star, MapPin, Calendar, MessageSquare } from "lucide-react"
+import { supabase, type Profile } from "@/lib/supabase"
 import Link from "next/link"
 
-interface SearchResult {
-  id: string
-  name: string
-  type: "landlord" | "agent" | "property_manager" | "tenant"
-  avatar?: string
+interface SearchResult extends Profile {
   rating: number
   reviewCount: number
-  location: string
-  joinDate: string
   recentReview?: string
-  verified: boolean
 }
 
 interface SearchResultsProps {
@@ -34,66 +28,50 @@ export function SearchResults({ query, onClose }: SearchResultsProps) {
     const searchUsers = async () => {
       setIsLoading(true)
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 800))
+      try {
+        // Search profiles by name, email, or location
+        const { data: profiles, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .or(`full_name.ilike.%${query}%,email.ilike.%${query}%,location.ilike.%${query}%`)
+          .limit(20)
 
-      // Mock search results
-      const mockResults: SearchResult[] = [
-        {
-          id: "1",
-          name: "Sarah Johnson",
-          type: "landlord",
-          avatar: "/placeholder.svg?height=40&width=40",
-          rating: 4.8,
-          reviewCount: 24,
-          location: "Chicago, IL",
-          joinDate: "2022-03-15",
-          recentReview: "Very responsive and professional landlord",
-          verified: true,
-        },
-        {
-          id: "2",
-          name: "Mike Chen",
-          type: "agent",
-          avatar: "/placeholder.svg?height=40&width=40",
-          rating: 4.6,
-          reviewCount: 18,
-          location: "Austin, TX",
-          joinDate: "2021-11-08",
-          recentReview: "Helped us find the perfect home",
-          verified: true,
-        },
-        {
-          id: "3",
-          name: "Lisa Rodriguez",
-          type: "property_manager",
-          avatar: "/placeholder.svg?height=40&width=40",
-          rating: 4.9,
-          reviewCount: 31,
-          location: "Denver, CO",
-          joinDate: "2020-07-22",
-          recentReview: "Excellent property management services",
-          verified: false,
-        },
-        {
-          id: "4",
-          name: "David Kim",
-          type: "landlord",
-          avatar: "/placeholder.svg?height=40&width=40",
-          rating: 3.8,
-          reviewCount: 12,
-          location: "Seattle, WA",
-          joinDate: "2023-01-10",
-          recentReview: "Decent landlord but slow to respond",
-          verified: true,
-        },
-      ].filter(
-        (result) =>
-          result.name.toLowerCase().includes(query.toLowerCase()) ||
-          result.location.toLowerCase().includes(query.toLowerCase()),
-      )
+        if (error) {
+          console.error("Search error:", error)
+          setResults([])
+          setIsLoading(false)
+          return
+        }
 
-      setResults(mockResults)
+        // Get reviews for each profile to calculate ratings
+        const resultsWithRatings = await Promise.all(
+          profiles.map(async (profile) => {
+            const { data: reviews } = await supabase
+              .from("reviews")
+              .select("rating, content")
+              .eq("reviewee_id", profile.id)
+              .order("created_at", { ascending: false })
+
+            const reviewCount = reviews?.length || 0
+            const rating = reviewCount > 0 ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviewCount : 0
+
+            const recentReview = reviews?.[0]?.content
+
+            return {
+              ...profile,
+              rating: Math.round(rating * 10) / 10,
+              reviewCount,
+              recentReview,
+            }
+          }),
+        )
+
+        setResults(resultsWithRatings)
+      } catch (error) {
+        console.error("Search error:", error)
+        setResults([])
+      }
+
       setIsLoading(false)
     }
 
@@ -173,18 +151,19 @@ export function SearchResults({ query, onClose }: SearchResultsProps) {
           <CardContent className="p-6">
             <div className="flex items-start space-x-4">
               <Avatar className="w-16 h-16">
-                <AvatarImage src={result.avatar || "/placeholder.svg"} alt={result.name} />
+                <AvatarImage src={result.avatar_url || "/placeholder.svg"} alt={result.full_name || result.email} />
                 <AvatarFallback>
-                  {result.name
+                  {(result.full_name || result.email)
                     .split(" ")
                     .map((n) => n[0])
-                    .join("")}
+                    .join("")
+                    .toUpperCase()}
                 </AvatarFallback>
               </Avatar>
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-2">
-                  <h3 className="font-semibold text-lg text-gray-900">{result.name}</h3>
+                  <h3 className="font-semibold text-lg text-gray-900">{result.full_name || result.email}</h3>
                   {result.verified && (
                     <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
                       Verified
@@ -193,23 +172,29 @@ export function SearchResults({ query, onClose }: SearchResultsProps) {
                 </div>
 
                 <div className="flex items-center gap-4 mb-3">
-                  <Badge className={`text-xs ${getTypeColor(result.type)}`}>{getTypeLabel(result.type)}</Badge>
+                  <Badge className={`text-xs ${getTypeColor(result.user_type)}`}>
+                    {getTypeLabel(result.user_type)}
+                  </Badge>
 
-                  <div className="flex items-center gap-1">
-                    <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                    <span className="font-medium">{result.rating}</span>
-                    <span className="text-gray-500">({result.reviewCount} reviews)</span>
-                  </div>
+                  {result.reviewCount > 0 && (
+                    <div className="flex items-center gap-1">
+                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                      <span className="font-medium">{result.rating}</span>
+                      <span className="text-gray-500">({result.reviewCount} reviews)</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-4 h-4" />
-                    <span>{result.location}</span>
-                  </div>
+                  {result.location && (
+                    <div className="flex items-center gap-1">
+                      <MapPin className="w-4 h-4" />
+                      <span>{result.location}</span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
-                    <span>Joined {new Date(result.joinDate).toLocaleDateString()}</span>
+                    <span>Joined {new Date(result.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
 
